@@ -75,13 +75,12 @@ RUN git clone https://github.com/IAHispano/Applio.git ${APPLIO_DIR}
 WORKDIR ${APPLIO_DIR}
 
 # -------------------------------------------------------------------
-# FIX: Applio has a broken requirement "torch==2.7.1+cu128"
-# Replace it with a valid wheel BEFORE installing requirements
+# Fix broken Torch version inside Applio requirements
 # -------------------------------------------------------------------
 RUN sed -i 's/torch==2.7.1+cu128/torch==2.5.1+cu121/g' requirements.txt
 
 # -------------------------------------------------------------------
-# Install Applio requirements (now patched)
+# Install Applio requirements
 # -------------------------------------------------------------------
 RUN pip install -r requirements.txt
 
@@ -90,6 +89,7 @@ RUN pip install -r requirements.txt
 # -------------------------------------------------------------------
 EXPOSE 7865     # Applio UI
 EXPOSE 8080     # FileBrowser
+# -------------------------------------------------------------------
 
 # -------------------------------------------------------------------
 # Startup
