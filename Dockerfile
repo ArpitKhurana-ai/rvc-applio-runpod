@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 
 # -------------------------------------------------------------------
-# Base: PyTorch 2.5.1 + CUDA 12.8 (stable for Applio & RVC training)
+# Base: NVIDIA CUDA 12.8 (works on all RunPod GPUs, Blackwell, Hopper)
 # -------------------------------------------------------------------
-FROM pytorch/pytorch:2.5.1-cuda12.8-cudnn9-runtime
+FROM nvidia/cuda:12.8.0-runtime-ubuntu22.04
 
 # -------------------------------------------------------------------
 # Core environment
@@ -12,23 +12,24 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    WAN_RVC_ROOT=/workspace \
     APPLIO_DIR=/workspace/applio
 
 WORKDIR /workspace
 
 # -------------------------------------------------------------------
-# System Dependencies required by Applio + audio processing
+# System dependencies (full set required by Applio)
 # -------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv \
     git \
     ffmpeg \
     wget \
     curl \
-    sox \
     unzip \
     nano \
-    locales \
+    sox \
     build-essential \
     gcc \
     g++ \
@@ -39,21 +40,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsdl2-2.0-0 \
     portaudio19-dev \
     libssl-dev \
+    locales \
     ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# -------------------------------------------------------------------
-# Locale Setup
-# -------------------------------------------------------------------
-RUN locale-gen en_US.UTF-8 || true
-ENV LANG=en_US.UTF-8 \
-    LC_ALL=en_US.UTF-8
+# Python defaults
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
+    update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
 # -------------------------------------------------------------------
-# Python tools & HF CLI
+# Install PyTorch (GPU) - Torch 2.5.1 CUDA 12.x wheels
 # -------------------------------------------------------------------
-RUN python -m pip install --upgrade pip setuptools wheel
-RUN python -m pip install huggingface_hub
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install torch==2.5.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# -------------------------------------------------------------------
+# Hugging Face CLI (useful for model pulls)
+# -------------------------------------------------------------------
+RUN pip install huggingface_hub
 
 # -------------------------------------------------------------------
 # Install FileBrowser
@@ -70,25 +74,20 @@ RUN wget -q https://github.com/filebrowser/filebrowser/releases/latest/download/
 RUN git clone https://github.com/IAHispano/Applio.git ${APPLIO_DIR}
 WORKDIR ${APPLIO_DIR}
 
-# -------------------------------------------------------------------
-# Install Applio dependencies
-# -------------------------------------------------------------------
-RUN python -m pip install -r requirements.txt
+# Install Applio requirements
+RUN pip install -r requirements.txt
 
 # -------------------------------------------------------------------
 # Ports
 # -------------------------------------------------------------------
-EXPOSE 7865   # Applio WebUI
-EXPOSE 8080   # FileBrowser
+EXPOSE 7865
+EXPOSE 8080
 
 # -------------------------------------------------------------------
-# Startup Script
+# Startup
 # -------------------------------------------------------------------
 COPY startup.sh /workspace/startup.sh
 RUN chmod +x /workspace/startup.sh
 
-# -------------------------------------------------------------------
-# Command
-# -------------------------------------------------------------------
 WORKDIR /workspace
 CMD ["/bin/bash", "/workspace/startup.sh"]
