@@ -1,13 +1,10 @@
 # syntax=docker/dockerfile:1
 
-# -------------------------------------------------------------------
-# Base: NVIDIA CUDA 12.8 (works on all RunPod GPUs)
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------
+# Base Image — CUDA 12.8 runtime (works on RunPod GPUs)
+# ---------------------------------------------------------------
 FROM nvidia/cuda:12.8.0-runtime-ubuntu22.04
 
-# -------------------------------------------------------------------
-# Core environment
-# -------------------------------------------------------------------
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -16,14 +13,14 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /workspace
 
-# -------------------------------------------------------------------
-# System dependencies (Python dev FIXED here)
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------
+# System Dependencies (with python3-dev FIX)
+# ---------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-venv \
-    python3-dev \            # <-- REQUIRED FOR webrtcvad (Python.h)
+    python3-dev \
     git \
     ffmpeg \
     wget \
@@ -49,54 +46,54 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
     update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
-# -------------------------------------------------------------------
-# Install PyTorch (GPU) — Torch 2.5.1 CUDA 12.x
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------
+# PyTorch 2.5.1 + CUDA 12.1
+# ---------------------------------------------------------------
 RUN pip install --upgrade pip setuptools wheel && \
-    pip install torch==2.5.1+cu121 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+    pip install torch==2.5.1+cu121 torchvision==0.20.1 torchaudio==2.5.1 \
+        --index-url https://download.pytorch.org/whl/cu121
 
-# -------------------------------------------------------------------
-# Hugging Face CLI
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------
+# Hugging Face
+# ---------------------------------------------------------------
 RUN pip install huggingface_hub
 
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------
 # Install FileBrowser
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------
 RUN wget -q https://github.com/filebrowser/filebrowser/releases/latest/download/linux-amd64-filebrowser.tar.gz \
     -O /tmp/filebrowser.tar.gz && \
     tar -xzf /tmp/filebrowser.tar.gz -C /usr/local/bin filebrowser && \
     chmod +x /usr/local/bin/filebrowser && \
     rm /tmp/filebrowser.tar.gz
 
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------
 # Clone Applio
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------
 RUN git clone https://github.com/IAHispano/Applio.git ${APPLIO_DIR}
 WORKDIR ${APPLIO_DIR}
 
-# Remove conflicting torch pins
+# ---------------------------------------------------------------
+# Fix conflicting PyTorch pins inside Applio
+# ---------------------------------------------------------------
 RUN sed -i '/^torch==/d' requirements.txt && \
     sed -i '/^torchaudio==/d' requirements.txt && \
     sed -i '/^torchvision==/d' requirements.txt
 
-# Reinstall correct torch
-RUN pip install torch==2.5.1+cu121 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
-
-# -------------------------------------------------------------------
-# Install remaining Applio requirements
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------
+# Install remaining requirements
+# ---------------------------------------------------------------
 RUN pip install -r requirements.txt
 
-# -------------------------------------------------------------------
-# Ports
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------
+# Expose Ports
+# ---------------------------------------------------------------
 EXPOSE 7865
 EXPOSE 8080
 
-# -------------------------------------------------------------------
-# Startup
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------
+# Startup Script
+# ---------------------------------------------------------------
 COPY startup.sh /workspace/startup.sh
 RUN chmod +x /workspace/startup.sh
 
