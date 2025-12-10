@@ -1,13 +1,12 @@
 # syntax=docker/dockerfile:1
 
 # -------------------------------------------------------------------
-# Base: PyTorch + CUDA 12.8 + cuDNN9 (good for RTX 5090 / Blackwell)
+# Base: PyTorch 2.5.1 + CUDA 12.8 (stable for Applio & RVC training)
 # -------------------------------------------------------------------
-# If needed you can bump this later (e.g. to 2.9.x) by changing the tag.
-FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime
+FROM pytorch/pytorch:2.5.1-cuda12.8-cudnn9-runtime
 
 # -------------------------------------------------------------------
-# Core env
+# Core environment
 # -------------------------------------------------------------------
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
@@ -19,39 +18,46 @@ ENV DEBIAN_FRONTEND=noninteractive \
 WORKDIR /workspace
 
 # -------------------------------------------------------------------
-# System deps
+# System Dependencies required by Applio + audio processing
 # -------------------------------------------------------------------
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        git \
-        ffmpeg \
-        wget \
-        curl \
-        sox \
-        ca-certificates \
-        unzip \
-        nano \
-        locales && \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    ffmpeg \
+    wget \
+    curl \
+    sox \
+    unzip \
+    nano \
+    locales \
+    build-essential \
+    gcc \
+    g++ \
+    libsndfile1 \
+    espeak-ng \
+    libsoxr-dev \
+    libsox-dev \
+    libsdl2-2.0-0 \
+    portaudio19-dev \
+    libssl-dev \
+    ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Ensure UTF-8 locale (helps with Python / Gradio)
+# -------------------------------------------------------------------
+# Locale Setup
+# -------------------------------------------------------------------
 RUN locale-gen en_US.UTF-8 || true
 ENV LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 
 # -------------------------------------------------------------------
-# Python deps (global)
+# Python tools & HF CLI
 # -------------------------------------------------------------------
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential gcc g++
 RUN python -m pip install --upgrade pip setuptools wheel
-
-# Hugging Face CLI (optional but useful for model sync)
 RUN python -m pip install huggingface_hub
 
 # -------------------------------------------------------------------
-# Install FileBrowser (single binary)
+# Install FileBrowser
 # -------------------------------------------------------------------
-# See: https://github.com/filebrowser/filebrowser/releases
 RUN wget -q https://github.com/filebrowser/filebrowser/releases/latest/download/linux-amd64-filebrowser.tar.gz \
     -O /tmp/filebrowser.tar.gz && \
     tar -xzf /tmp/filebrowser.tar.gz -C /usr/local/bin filebrowser && \
@@ -59,35 +65,30 @@ RUN wget -q https://github.com/filebrowser/filebrowser/releases/latest/download/
     rm /tmp/filebrowser.tar.gz
 
 # -------------------------------------------------------------------
-# Clone Applio (RVC Web UI)
+# Clone Applio
 # -------------------------------------------------------------------
 RUN git clone https://github.com/IAHispano/Applio.git ${APPLIO_DIR}
-
 WORKDIR ${APPLIO_DIR}
 
-# Install Applio requirements
-# (They recommend Python 3.9–3.11; this base image is in that range)
+# -------------------------------------------------------------------
+# Install Applio dependencies
+# -------------------------------------------------------------------
 RUN python -m pip install -r requirements.txt
-
-# Optional: if you ever need to force a specific Torch build, do it *after* requirements.txt
-# RUN python -m pip install --force-reinstall "torch==2.7.1" --index-url https://download.pytorch.org/whl/cu128
 
 # -------------------------------------------------------------------
 # Ports
 # -------------------------------------------------------------------
-# Applio WebUI
-EXPOSE 7865
-# FileBrowser
-EXPOSE 8080
+EXPOSE 7865   # Applio WebUI
+EXPOSE 8080   # FileBrowser
 
 # -------------------------------------------------------------------
-# Copy startup script
+# Startup Script
 # -------------------------------------------------------------------
 COPY startup.sh /workspace/startup.sh
 RUN chmod +x /workspace/startup.sh
 
 # -------------------------------------------------------------------
-# Default command
+# Command
 # -------------------------------------------------------------------
 WORKDIR /workspace
 CMD ["/bin/bash", "/workspace/startup.sh"]
