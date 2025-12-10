@@ -75,9 +75,12 @@ RUN git clone https://github.com/IAHispano/Applio.git ${APPLIO_DIR}
 WORKDIR ${APPLIO_DIR}
 
 # -------------------------------------------------------------------
-# Fix broken Torch version inside Applio requirements
+# Patch Applio's incompatible Torch versions (fix build crash)
 # -------------------------------------------------------------------
-RUN sed -i 's/torch==2.7.1+cu128/torch==2.5.1+cu121/g' requirements.txt
+RUN sed -i 's/torch==2.7.1+cu128/torch==2.5.1+cu121/g' requirements.txt && \
+    sed -i 's/torchvision==0.20.2+cu128/torchvision==0.20.1/g' requirements.txt && \
+    sed -i 's/torchvision==0.20.1+cu128/torchvision==0.20.1/g' requirements.txt && \
+    sed -i 's/torchaudio==2.7.1+cu128/torchaudio==2.5.1/g' requirements.txt
 
 # -------------------------------------------------------------------
 # Install Applio requirements
@@ -87,9 +90,8 @@ RUN pip install -r requirements.txt
 # -------------------------------------------------------------------
 # Ports
 # -------------------------------------------------------------------
-EXPOSE 7865     
-EXPOSE 8080     
-# -------------------------------------------------------------------
+EXPOSE 7865
+EXPOSE 8080
 
 # -------------------------------------------------------------------
 # Startup
