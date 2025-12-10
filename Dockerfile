@@ -42,6 +42,7 @@ ENV LANG=en_US.UTF-8 \
 # -------------------------------------------------------------------
 # Python deps (global)
 # -------------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential gcc g++
 RUN python -m pip install --upgrade pip setuptools wheel
 
 # Hugging Face CLI (optional but useful for model sync)
