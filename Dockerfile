@@ -17,7 +17,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 WORKDIR /workspace
 
 # -------------------------------------------------------------------
-# System dependencies (full set required by Applio)
+# System dependencies (required for Applio + RVC training)
 # -------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
@@ -55,7 +55,7 @@ RUN pip install --upgrade pip setuptools wheel && \
     pip install torch==2.5.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
 # -------------------------------------------------------------------
-# Hugging Face CLI (useful for model pulls)
+# Hugging Face CLI
 # -------------------------------------------------------------------
 RUN pip install huggingface_hub
 
@@ -74,14 +74,22 @@ RUN wget -q https://github.com/filebrowser/filebrowser/releases/latest/download/
 RUN git clone https://github.com/IAHispano/Applio.git ${APPLIO_DIR}
 WORKDIR ${APPLIO_DIR}
 
-# Install Applio requirements
+# -------------------------------------------------------------------
+# FIX: Applio has a broken requirement "torch==2.7.1+cu128"
+# Replace it with a valid wheel BEFORE installing requirements
+# -------------------------------------------------------------------
+RUN sed -i 's/torch==2.7.1+cu128/torch==2.5.1+cu121/g' requirements.txt
+
+# -------------------------------------------------------------------
+# Install Applio requirements (now patched)
+# -------------------------------------------------------------------
 RUN pip install -r requirements.txt
 
 # -------------------------------------------------------------------
 # Ports
 # -------------------------------------------------------------------
-EXPOSE 7865
-EXPOSE 8080
+EXPOSE 7865     # Applio UI
+EXPOSE 8080     # FileBrowser
 
 # -------------------------------------------------------------------
 # Startup
