@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # -------------------------------------------------------------------
-# Base: NVIDIA CUDA 12.8 (works on all RunPod GPUs, Blackwell, Hopper)
+# Base: NVIDIA CUDA 12.8 (works on all RunPod GPUs)
 # -------------------------------------------------------------------
 FROM nvidia/cuda:12.8.0-runtime-ubuntu22.04
 
@@ -17,12 +17,13 @@ ENV DEBIAN_FRONTEND=noninteractive \
 WORKDIR /workspace
 
 # -------------------------------------------------------------------
-# System dependencies (required for Applio + RVC training)
+# System dependencies (Python dev FIXED here)
 # -------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-venv \
+    python3-dev \            # <-- REQUIRED FOR webrtcvad (Python.h)
     git \
     ffmpeg \
     wget \
@@ -49,7 +50,7 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
     update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
 # -------------------------------------------------------------------
-# Install PyTorch (GPU) - Torch 2.5.1 CUDA 12.x wheels
+# Install PyTorch (GPU) — Torch 2.5.1 CUDA 12.x
 # -------------------------------------------------------------------
 RUN pip install --upgrade pip setuptools wheel && \
     pip install torch==2.5.1+cu121 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
@@ -74,16 +75,12 @@ RUN wget -q https://github.com/filebrowser/filebrowser/releases/latest/download/
 RUN git clone https://github.com/IAHispano/Applio.git ${APPLIO_DIR}
 WORKDIR ${APPLIO_DIR}
 
-# -------------------------------------------------------------------
-# Remove conflicting Torch/TorchAudio/TorchVision requirements
-# -------------------------------------------------------------------
+# Remove conflicting torch pins
 RUN sed -i '/^torch==/d' requirements.txt && \
     sed -i '/^torchaudio==/d' requirements.txt && \
     sed -i '/^torchvision==/d' requirements.txt
 
-# -------------------------------------------------------------------
-# Install RVC-compatible Torch stack
-# -------------------------------------------------------------------
+# Reinstall correct torch
 RUN pip install torch==2.5.1+cu121 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 
 # -------------------------------------------------------------------
