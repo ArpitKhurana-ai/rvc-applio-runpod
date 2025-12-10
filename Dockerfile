@@ -52,7 +52,7 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
 # Install PyTorch (GPU) - Torch 2.5.1 CUDA 12.x wheels
 # -------------------------------------------------------------------
 RUN pip install --upgrade pip setuptools wheel && \
-    pip install torch==2.5.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+    pip install torch==2.5.1+cu121 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
 # -------------------------------------------------------------------
 # Hugging Face CLI
@@ -75,15 +75,19 @@ RUN git clone https://github.com/IAHispano/Applio.git ${APPLIO_DIR}
 WORKDIR ${APPLIO_DIR}
 
 # -------------------------------------------------------------------
-# Patch Applio's incompatible Torch versions (fix build crash)
+# Remove conflicting Torch/TorchAudio/TorchVision requirements
 # -------------------------------------------------------------------
-RUN sed -i 's/torch==2.7.1+cu128/torch==2.5.1+cu121/g' requirements.txt && \
-    sed -i 's/torchaudio==2.7.1+cu128/torchaudio==2.5.1/g' requirements.txt && \
-    sed -i 's/torchvision==0.20.2+cu128/torchvision==0.20.1/g' requirements.txt && \
-    sed -i 's/torchvision==0.20.1+cu128/torchvision==0.20.1/g' requirements.txt && \
-    sed -i 's/torchvision==0.22.1+cu128/torchvision==0.22.1/g' requirements.txt
+RUN sed -i '/^torch==/d' requirements.txt && \
+    sed -i '/^torchaudio==/d' requirements.txt && \
+    sed -i '/^torchvision==/d' requirements.txt
 
-# Install Applio requirements
+# -------------------------------------------------------------------
+# Install RVC-compatible Torch stack
+# -------------------------------------------------------------------
+RUN pip install torch==2.5.1+cu121 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+
+# -------------------------------------------------------------------
+# Install remaining Applio requirements
 # -------------------------------------------------------------------
 RUN pip install -r requirements.txt
 
