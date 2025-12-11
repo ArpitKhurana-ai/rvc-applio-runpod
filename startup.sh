@@ -9,19 +9,15 @@ echo "==========================================================="
 # Core env
 # -------------------------------------------------------------------
 export PYTHONUNBUFFERED=1
-# Helps avoid some OOM fragmentation issues on 12–16 GB cards
 export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
 
 export WAN_RVC_ROOT="/workspace"
 export APPLIO_DIR="${WAN_RVC_ROOT}/applio"
 
-# You can optionally set this at template level (for private HF repos)
-# export HF_TOKEN=""
-
 cd "${WAN_RVC_ROOT}"
 
 # -------------------------------------------------------------------
-# Directory layout (beginner-friendly)
+# Directory layout
 # -------------------------------------------------------------------
 DATASET_DIR="${WAN_RVC_ROOT}/Datasets/Voice_Training_Upload"
 PRETRAIN_DIR="${WAN_RVC_ROOT}/Models/RVC_Pretrained"
@@ -38,45 +34,15 @@ mkdir -p \
   "${UVR_DIR}" \
   "${LOGS_DIR}"
 
-echo ">> Directory structure ensured:"
-echo "   - ${DATASET_DIR} (upload training data here)"
-echo "   - ${PRETRAIN_DIR} (pretrained RVC / TITAN / Ov2Super)"
-echo "   - ${TRAINED_DIR} (your trained voices)"
-echo "   - ${RMVPE_DIR} (F0 models)"
-echo "   - ${UVR_DIR} (vocal separation models)"
-echo "   - ${LOGS_DIR}"
+echo ">> Directory structure ensured."
+echo ">> Applio folder: ${APPLIO_DIR}"
 
 # -------------------------------------------------------------------
-# (Optional) Hugging Face model sync
-# -------------------------------------------------------------------
-# This is **for you**, not end-users. You can hardcode your HF repo that
-# bundles pretrains (RVC V2, TITAN, Ov2Super, RMVPE, UVR, etc.).
-#
-# Example pattern (commented out by default):
-#
-# if [[ -n "${HF_TOKEN}" ]]; then
-#   echo ">> HF_TOKEN detected, syncing models from Hugging Face..."
-#   huggingface-cli download your-username/your-rvc-bundle \
-#     --local-dir "${WAN_RVC_ROOT}/Models" \
-#     --token "${HF_TOKEN}" \
-#     --exclude ".gitattributes"
-# else
-#   echo ">> No HF_TOKEN set. Skipping automatic model download."
-#   echo ">> Place your models manually into:"
-#   echo "   - ${PRETRAIN_DIR}"
-#   echo "   - ${TRAINED_DIR}"
-#   echo "   - ${RMVPE_DIR}"
-#   echo "   - ${UVR_DIR}"
-# fi
-
-# -------------------------------------------------------------------
-# Symlinks into Applio (so UX is clean)
+# Symlinks into Applio
 # -------------------------------------------------------------------
 if [[ -d "${APPLIO_DIR}" ]]; then
-  echo ">> Wiring Applio to standardized /workspace paths..."
+  echo ">> Linking dataset & model folders into Applio..."
 
-  # These paths are "extra" mount points. Even if Applio doesn't use
-  # them by default, you can browse to them from inside the UI.
   mkdir -p "${APPLIO_DIR}/rvc_extra"
 
   ln -sfn "${DATASET_DIR}"  "${APPLIO_DIR}/rvc_extra/datasets"
@@ -84,37 +50,32 @@ if [[ -d "${APPLIO_DIR}" ]]; then
   ln -sfn "${TRAINED_DIR}"  "${APPLIO_DIR}/rvc_extra/trained"
   ln -sfn "${RMVPE_DIR}"    "${APPLIO_DIR}/rvc_extra/rmvpe"
   ln -sfn "${UVR_DIR}"      "${APPLIO_DIR}/rvc_extra/uvr"
-
-  echo ">> Applio extra mounts:"
-  echo "   - ${APPLIO_DIR}/rvc_extra/datasets  -> ${DATASET_DIR}"
-  echo "   - ${APPLIO_DIR}/rvc_extra/pretrained -> ${PRETRAIN_DIR}"
-  echo "   - ${APPLIO_DIR}/rvc_extra/trained    -> ${TRAINED_DIR}"
 fi
 
 # -------------------------------------------------------------------
-# FileBrowser setup (admin / admin)
+# FileBrowser setup
 # -------------------------------------------------------------------
 FB_DB="${WAN_RVC_ROOT}/filebrowser.db"
 
 if [[ ! -f "${FB_DB}" ]]; then
   echo ">> Initializing FileBrowser database..."
   filebrowser -d "${FB_DB}" config init
-  # Root at /workspace so users see Datasets + Models immediately
   filebrowser -d "${FB_DB}" config set --root "${WAN_RVC_ROOT}"
-  # Create default admin user (demo template, you can warn in README/video)
   filebrowser -d "${FB_DB}" users add admin admin --perm.admin
 fi
 
-echo ">> Starting FileBrowser on :8080 (user: admin / pass: admin)"
-nohup filebrowser -d "${FB_DB}" -p 8080 >/workspace/filebrowser.log 2>&1 &
+echo ">> Starting FileBrowser on port 8080..."
+nohup filebrowser -d "${FB_DB}" --root "${WAN_RVC_ROOT}" --port 8080 \
+  >/workspace/filebrowser.log 2>&1 &
+
+sleep 1
+echo ">> FileBrowser running. Log: /workspace/filebrowser.log"
 
 # -------------------------------------------------------------------
-# Applio launch
+# Start Applio — IMPORTANT: run in FOREGROUND (blocking)
 # -------------------------------------------------------------------
-echo ">> Starting Applio (RVC WebUI) on :7865"
+echo ">> Starting Applio (RVC WebUI) on port 7865..."
 cd "${APPLIO_DIR}"
 
-# NOTE:
-# Applio normally uses run-applio.sh, but core entry is app.py
-# We bind to 0.0.0.0 so RunPod exposes it.
-python app.py --port 7865 --host 0.0.0.0 >/workspace/applio.log 2>&1
+# FIX: run in foreground so RunPod proxy detects it
+exec python3 app.py --port 7865 --host 0.0.0.0
