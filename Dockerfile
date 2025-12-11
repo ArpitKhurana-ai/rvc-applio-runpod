@@ -47,11 +47,17 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
     update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
 # ---------------------------------------------------------------
-# PyTorch 2.5.1 + CUDA 12.1
+# Install PyTorch — different for AMD64 (CUDA) vs ARM64 (CPU)
 # ---------------------------------------------------------------
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install torch==2.5.1+cu121 torchvision==0.20.1 torchaudio==2.5.1 \
-        --index-url https://download.pytorch.org/whl/cu121
+RUN if [ "$(uname -m)" = "x86_64" ]; then \
+      echo ">>> Installing CUDA PyTorch (AMD64)"; \
+      pip install torch==2.5.1+cu121 torchvision==0.20.1 torchaudio==2.5.1 \
+        --index-url https://download.pytorch.org/whl/cu121; \
+    else \
+      echo ">>> Installing CPU PyTorch (ARM64)"; \
+      pip install torch torchvision torchaudio \
+        --index-url https://download.pytorch.org/whl/cpu; \
+    fi
 
 # ---------------------------------------------------------------
 # Hugging Face
