@@ -82,19 +82,27 @@ sleep 1
 echo ">> FileBrowser running."
 
 # -------------------------------------------------------------------
-# Start Applio (AUTO-DETECT ENTRYPOINT, FOREGROUND)
+# Start Applio (CORRECTED)
 # -------------------------------------------------------------------
 echo ">> Starting Applio (RVC WebUI) on port 7865..."
 cd "${APPLIO_DIR}"
 
+# Force Gradio to listen on all interfaces
+export GRADIO_SERVER_NAME="0.0.0.0"
+export GRADIO_SERVER_PORT="7865"
+
+# Prevent huggingface hub from trying to use a cached token interactively
+export HF_HOME="${DATA_ROOT}/.cache/huggingface"
+
 if [[ -f "app.py" ]]; then
-  echo ">> Using app.py"
-  exec python app.py --port 7865 --host 0.0.0.0
+  echo ">> Found app.py, launching..."
+  # Exec replaces the shell, making this the main foreground process
+  exec python app.py
 elif [[ -f "infer-web.py" ]]; then
-  echo ">> Using infer-web.py"
-  exec python infer-web.py --port 7865 --host 0.0.0.0
+  echo ">> Found infer-web.py, launching..."
+  exec python infer-web.py
 else
-  echo "❌ ERROR: No valid Applio entrypoint found (app.py or infer-web.py)"
+  echo "❌ ERROR: No valid Applio entrypoint found!"
   ls -la
   exit 1
 fi
