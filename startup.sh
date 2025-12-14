@@ -87,4 +87,5 @@ echo ">> FileBrowser running."
 echo ">> Starting Applio (RVC WebUI) on port 7865..."
 cd "${APPLIO_DIR}"
 
-exec python infer-web.py --port 7865 --host 0.0.0.0
+exec python app.py --port 7865 --host 0.0.0.0
+
