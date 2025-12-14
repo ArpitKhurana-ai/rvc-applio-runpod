@@ -10,7 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     DATA_DIR=/workspace
 
 # ---------------------------------------------------------------
-# System deps
+# System dependencies
 # ---------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
@@ -41,7 +41,7 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
     update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
 # ---------------------------------------------------------------
-# PyTorch (GPU for amd64, CPU for arm64)
+# PyTorch (GPU on amd64, CPU on arm64)
 # ---------------------------------------------------------------
 RUN pip install --upgrade pip setuptools wheel && \
     if [ "$(uname -m)" = "x86_64" ]; then \
@@ -53,7 +53,7 @@ RUN pip install --upgrade pip setuptools wheel && \
     fi
 
 # ---------------------------------------------------------------
-# App directory (IMPORTANT: NOT /workspace)
+# App directory (NOT /workspace)
 # ---------------------------------------------------------------
 WORKDIR /app
 
@@ -72,12 +72,11 @@ RUN wget -q https://github.com/filebrowser/filebrowser/releases/latest/download/
     rm /tmp/filebrowser.tar.gz
 
 # ---------------------------------------------------------------
-# Clone Applio INTO /app
+# Clone Applio
 # ---------------------------------------------------------------
 RUN git clone https://github.com/IAHispano/Applio.git /app/applio
 WORKDIR /app/applio
 
-# Remove torch pins
 RUN sed -i '/^torch==/d' requirements.txt && \
     sed -i '/^torchaudio==/d' requirements.txt && \
     sed -i '/^torchvision==/d' requirements.txt
@@ -85,13 +84,13 @@ RUN sed -i '/^torch==/d' requirements.txt && \
 RUN pip install -r requirements.txt
 
 # ---------------------------------------------------------------
-# Startup script (OUTSIDE /workspace)
+# Ports
 # ---------------------------------------------------------------
-COPY startup.sh /app/startup.sh
-RUN chmod +x /app/startup.sh
-
 EXPOSE 7865
 EXPOSE 8080
 
+# ---------------------------------------------------------------
+# Runtime startup (FETCH FROM GITHUB)
+# ---------------------------------------------------------------
 WORKDIR /app
-CMD ["/bin/bash", "/app/startup.sh"]
+CMD ["bash", "-c", "curl -fsSL https://raw.githubusercontent.com/ArpitKhurana-ai/rvc-applio-runpod/main/startup.sh | bash"]
