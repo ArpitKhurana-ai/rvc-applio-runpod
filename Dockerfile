@@ -1,20 +1,16 @@
 # syntax=docker/dockerfile:1
 
-# ---------------------------------------------------------------
-# Base Image — CUDA 12.8 runtime (works on RunPod GPUs)
-# ---------------------------------------------------------------
 FROM nvidia/cuda:12.8.0-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    APPLIO_DIR=/workspace/applio
-
-WORKDIR /workspace
+    APP_DIR=/app \
+    DATA_DIR=/workspace
 
 # ---------------------------------------------------------------
-# System Dependencies (with python3-dev FIX)
+# System deps
 # ---------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
@@ -38,34 +34,36 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsdl2-2.0-0 \
     portaudio19-dev \
     libssl-dev \
-    locales \
     ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Python defaults
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
     update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
 # ---------------------------------------------------------------
-# Install PyTorch — different for AMD64 (CUDA) vs ARM64 (CPU)
+# PyTorch (GPU for amd64, CPU for arm64)
 # ---------------------------------------------------------------
-RUN if [ "$(uname -m)" = "x86_64" ]; then \
-      echo ">>> Installing CUDA PyTorch (AMD64)"; \
-      pip install torch==2.5.1+cu121 torchvision==0.20.1 torchaudio==2.5.1 \
-        --index-url https://download.pytorch.org/whl/cu121; \
+RUN pip install --upgrade pip setuptools wheel && \
+    if [ "$(uname -m)" = "x86_64" ]; then \
+        pip install torch==2.5.1+cu121 torchvision==0.20.1 torchaudio==2.5.1 \
+          --index-url https://download.pytorch.org/whl/cu121; \
     else \
-      echo ">>> Installing CPU PyTorch (ARM64)"; \
-      pip install torch torchvision torchaudio \
-        --index-url https://download.pytorch.org/whl/cpu; \
+        pip install torch torchvision torchaudio \
+          --index-url https://download.pytorch.org/whl/cpu; \
     fi
 
 # ---------------------------------------------------------------
-# Hugging Face
+# App directory (IMPORTANT: NOT /workspace)
+# ---------------------------------------------------------------
+WORKDIR /app
+
+# ---------------------------------------------------------------
+# HuggingFace
 # ---------------------------------------------------------------
 RUN pip install huggingface_hub
 
 # ---------------------------------------------------------------
-# Install FileBrowser
+# FileBrowser
 # ---------------------------------------------------------------
 RUN wget -q https://github.com/filebrowser/filebrowser/releases/latest/download/linux-amd64-filebrowser.tar.gz \
     -O /tmp/filebrowser.tar.gz && \
@@ -74,34 +72,26 @@ RUN wget -q https://github.com/filebrowser/filebrowser/releases/latest/download/
     rm /tmp/filebrowser.tar.gz
 
 # ---------------------------------------------------------------
-# Clone Applio
+# Clone Applio INTO /app
 # ---------------------------------------------------------------
-RUN git clone https://github.com/IAHispano/Applio.git ${APPLIO_DIR}
-WORKDIR ${APPLIO_DIR}
+RUN git clone https://github.com/IAHispano/Applio.git /app/applio
+WORKDIR /app/applio
 
-# ---------------------------------------------------------------
-# Fix conflicting PyTorch pins inside Applio
-# ---------------------------------------------------------------
+# Remove torch pins
 RUN sed -i '/^torch==/d' requirements.txt && \
     sed -i '/^torchaudio==/d' requirements.txt && \
     sed -i '/^torchvision==/d' requirements.txt
 
-# ---------------------------------------------------------------
-# Install remaining requirements
-# ---------------------------------------------------------------
 RUN pip install -r requirements.txt
 
 # ---------------------------------------------------------------
-# Expose Ports
+# Startup script (OUTSIDE /workspace)
 # ---------------------------------------------------------------
+COPY startup.sh /app/startup.sh
+RUN chmod +x /app/startup.sh
+
 EXPOSE 7865
 EXPOSE 8080
 
-# ---------------------------------------------------------------
-# Startup Script
-# ---------------------------------------------------------------
-COPY startup.sh /workspace/startup.sh
-RUN chmod +x /workspace/startup.sh
-
-WORKDIR /workspace
-CMD ["/bin/bash", "/workspace/startup.sh"]
+WORKDIR /app
+CMD ["/bin/bash", "/app/startup.sh"]
