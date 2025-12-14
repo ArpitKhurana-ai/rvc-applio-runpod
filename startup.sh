@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 echo "==========================================================="
 echo "   RVC Applio + FileBrowser — RunPod Starter"
@@ -40,7 +40,7 @@ mkdir -p \
 echo ">> Persistent directory structure ready."
 
 # -------------------------------------------------------------------
-# Symlinks into Applio (SAFE NOW)
+# Symlinks into Applio (SAFE)
 # -------------------------------------------------------------------
 echo ">> Linking persistent folders into Applio..."
 
@@ -67,7 +67,7 @@ if [[ ! -f "${FB_DB}" ]]; then
   echo ">> Initializing FileBrowser database..."
   filebrowser -d "${FB_DB}" config init
   filebrowser -d "${FB_DB}" config set --root "${DATA_ROOT}"
-  filebrowser -d "${FB_DB}" users add admin admin --perm.admin
+  filebrowser -d "${FB_DB}" users add admin 'Admin@123!' --perm.admin
 fi
 
 echo ">> Starting FileBrowser on port 8080..."
@@ -82,10 +82,19 @@ sleep 1
 echo ">> FileBrowser running."
 
 # -------------------------------------------------------------------
-# Start Applio (FOREGROUND — REQUIRED)
+# Start Applio (AUTO-DETECT ENTRYPOINT, FOREGROUND)
 # -------------------------------------------------------------------
 echo ">> Starting Applio (RVC WebUI) on port 7865..."
 cd "${APPLIO_DIR}"
 
-exec python app.py --port 7865 --host 0.0.0.0
-
+if [[ -f "app.py" ]]; then
+  echo ">> Using app.py"
+  exec python app.py --port 7865 --host 0.0.0.0
+elif [[ -f "infer-web.py" ]]; then
+  echo ">> Using infer-web.py"
+  exec python infer-web.py --port 7865 --host 0.0.0.0
+else
+  echo "❌ ERROR: No valid Applio entrypoint found (app.py or infer-web.py)"
+  ls -la
+  exit 1
+fi
